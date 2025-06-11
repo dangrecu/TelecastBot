@@ -35,43 +35,27 @@ from utils import (
 from pyrogram.types import (
     InlineKeyboardMarkup, 
     InlineKeyboardButton
-    )
+)
 from pyrogram.errors import (
     MessageIdInvalid, 
     MessageNotModified,
     UserNotParticipant,
     PeerIdInvalid,
     ChannelInvalid
-    )
+)
 from pyrogram import (
     Client, 
     filters
-    )
+)
 
-admin_filter=filters.create(is_admin) 
+admin_filter = filters.create(is_admin) 
 
 @Client.on_message(filters.command(["play", "fplay", f"play@{Config.BOT_USERNAME}", f"fplay@{Config.BOT_USERNAME}"]))
 async def add_to_playlist(client, message):
     print(f"Command received from {message.from_user.id} in chat type: {message.chat.type}")
     with suppress(MessageIdInvalid, MessageNotModified):
-        # Check if the command is used in the authorized chat
-        if message.chat.id != Config.CHAT and message.chat.type != enums.ChatType.PRIVATE:
-            buttons = [
-                [
-                    InlineKeyboardButton('🤖 Make Own Bot', url='https://github.com/abirxdhack/TelecastBot'),
-                    InlineKeyboardButton('✅ Join Here', url='https://t.me/Modvip_rm'),
-                ]
-            ]
-            reply_markup = InlineKeyboardMarkup(buttons)
-            await message.reply(
-                "❌This is not the group which I have been configured to play in. Do you want to set this group as default CHAT?",
-                quote=False,
-                reply_markup=reply_markup
-            )
-            return
-
-        # Fetch the list of admins for the chat
-        admins = await get_admins(Config.CHAT)
+        # Fetch the list of admins for the current chat
+        admins = await get_admins(message.chat.id)
 
         # Check if the command is restricted to admins only
         if Config.ADMIN_ONLY:
@@ -86,10 +70,10 @@ async def add_to_playlist(client, message):
         url=""
         if message.command[0] == "fplay":
             if not (message.from_user is None and message.sender_chat or message.from_user.id in admins):
-                k=await message.reply("This command is only for admins.", quote=False)
+                k = await message.reply("This command is only for admins.", quote=False)
                 await delete_messages([message, k])
                 return
-        msg = await message.reply_text("⚡️ **Checking recived input..**", quote=False)
+        msg = await message.reply_text("⚡️ **Checking received input..**", quote=False)
         if message.reply_to_message and message.reply_to_message.video:
             await msg.edit("⚡️ **Checking Telegram Media...**")
             type='video'
@@ -101,19 +85,17 @@ async def add_to_playlist(client, message):
             if not "video" in m_video.mime_type:
                 return await msg.edit("The given file is invalid")
         elif message.reply_to_message and message.reply_to_message.audio:
-            #if not Config.IS_VIDEO:
-                #return await message.reply("Play from audio file is available only if Video Mode if turned off.\nUse /settings to configure ypur player.")
             await msg.edit("⚡️ **Checking Telegram Media...**")
             type='audio'
             m_video = message.reply_to_message.audio       
         else:
             if message.reply_to_message and message.reply_to_message.text:
-                query=message.reply_to_message.text
+                query = message.reply_to_message.text
             elif " " in message.text:
                 text = message.text.split(" ", 1)
                 query = text[1]
             else:
-                await msg.edit("<b>❌You Didn't gave me anything to play.</b>")
+                await msg.edit("<b>❌You didn't give me anything to play.</b>")
                 await delete_messages([message, msg])
                 return
 
@@ -127,7 +109,7 @@ async def add_to_playlist(client, message):
                     return
 
             regex = r"^(?:https?:\/\/)?(?:www\.)?youtu\.?be(?:\.com)?\/?.*(?:watch|embed)?(?:.*v=|v\/|\/)([\w\-_]+)\&?"
-            match = re.match(regex,query)
+            match = re.match(regex, query)
             if match:
                 type="youtube"
                 yturl=query
@@ -139,11 +121,11 @@ async def add_to_playlist(client, message):
                     LOGGER.error("Unable to get Audio properties within time.")
                 if has_audio_:
                     try:
-                        dur=await get_duration(query)
+                        dur = await get_duration(query)
                     except:
-                        dur=0
+                        dur = 0
                     if dur == 0:
-                        await msg.edit("<b>❌This is a live stream, Use /stream command.</b>")
+                        await msg.edit("<b>❌This is a live stream, use /stream command.</b>")
                         await delete_messages([message, msg])
                         return 
                     type="direct"
@@ -156,15 +138,14 @@ async def add_to_playlist(client, message):
                         await msg.edit("<b>Invalid link ❌</b>")
                         await delete_messages([message, msg])
                         return
-
             else:
                 type="query"
                 ysearch=query
         if not message.from_user is None:
-            user=f"[{message.from_user.first_name}](tg://user?id={message.from_user.id})"
+            user = f"[{message.from_user.first_name}](tg://user?id={message.from_user.id})"
             user_id = message.from_user.id
         else:
-            user="Anonymous 👻"
+            user = "Anonymous 👻"
             user_id = "anonymous_admin"
         now = datetime.now()
         nyav = now.strftime("%d-%m-%Y-%H:%M:%S")
@@ -180,20 +161,20 @@ async def add_to_playlist(client, message):
                 if m_video.performer is not None:
                     title = f"{m_video.performer} - {title_}"
                 else:
-                    title=title_
+                    title = title_
                 unique = f"{nyav}_{m_video.file_size}_audio"
             else:
-                title=m_video.file_name
+                title = m_video.file_name
                 unique = f"{nyav}_{m_video.file_size}_video"
                 if Config.PTN:
                     ny = parse(title)
                     title_ = ny.get("title")
                     if title_:
                         title = title_
-            file_id=m_video.file_id
+            file_id = m_video.file_id
             if title is None:
                 title = 'Music'
-            data={1:title, 2:file_id, 3:"telegram", 4:user, 5:unique}
+            data = {1:title, 2:file_id, 3:"telegram", 4:user, 5:unique}
             if message.command[0] == "fplay":
                 pla = [data] + Config.playlist
                 Config.playlist = pla
@@ -202,13 +183,13 @@ async def add_to_playlist(client, message):
             await add_to_db_playlist(data)        
             await msg.edit("<b>Media added to playlist ✅</b>")
         elif type in ["youtube", "query", "ytdl_s"]:
-            if type=="youtube":
+            if type == "youtube":
                 await msg.edit("⚡️ **Fetching Video From YouTube...**")
-                url=yturl
-            elif type=="query":
+                url = yturl
+            elif type == "query":
                 try:
                     await msg.edit("⚡️ **Fetching Video From YouTube...**")
-                    ytquery=ysearch
+                    ytquery = ysearch
                     results = YoutubeSearch(ytquery, max_results=1).to_dict()
                     url = f"https://youtube.com{results[0]['url_suffix']}"
                     title = results[0]["title"][:40]
@@ -220,7 +201,7 @@ async def add_to_playlist(client, message):
                     await delete_messages([message, msg])
                     return
             elif type == "ytdl_s":
-                url=url
+                url = url
             else:
                 return
             ydl_opts = {
@@ -228,7 +209,7 @@ async def add_to_playlist(client, message):
                 "geo-bypass": True,
                 "nocheckcertificate": True,
                 "no_warnings": True,
-                "cookiefile": Config.YT_COOKIES_PATH,  # Added cookiefile option
+                "cookiefile": Config.YT_COOKIES_PATH,
             }
             ydl = YoutubeDL(ydl_opts)
             try:
@@ -237,7 +218,7 @@ async def add_to_playlist(client, message):
                 LOGGER.error(e, exc_info=True)
                 await msg.edit(
                     f"<b>Error ❌ Use cookies-from-browser or cookies for the authentication.</b>"
-                    )
+                )
                 LOGGER.error(str(e))
                 await delete_messages([message, msg])
                 return
@@ -250,19 +231,19 @@ async def add_to_playlist(client, message):
             else:
                 title = info["title"]
                 if info['duration'] is None:
-                    await msg.edit("<b>❌This is a live stream, Use /stream command.</b>")
+                    await msg.edit("<b>❌This is a live stream, use /stream command.</b>")
                     await delete_messages([message, msg])
                     return 
-            data={1:title, 2:url, 3:"youtube", 4:user, 5:f"{nyav}_{user_id}"}
+            data = {1:title, 2:url, 3:"youtube", 4:user, 5:f"{nyav}_{user_id}"}
             if message.command[0] == "fplay":
                 pla = [data] + Config.playlist
                 Config.playlist = pla
             else:
                 Config.playlist.append(data)
             await add_to_db_playlist(data)
-            await msg.edit(f"<b>[{title}]({url}) added to playist</b>", disable_web_page_preview=True)
+            await msg.edit(f"<b>[{title}]({url}) added to playlist</b>", disable_web_page_preview=True)
         elif type == "direct":
-            data={1:"Music", 2:url, 3:"url", 4:user, 5:f"{nyav}_{user_id}"}
+            data = {1:"Music", 2:url, 3:"url", 4:user, 5:f"{nyav}_{user_id}"}
             if message.command[0] == "fplay":
                 pla = [data] + Config.playlist
                 Config.playlist = pla
@@ -270,12 +251,11 @@ async def add_to_playlist(client, message):
                 Config.playlist.append(data)
             await add_to_db_playlist(data)        
             await msg.edit("<b>Link added to playlist ✅</b>")
-        if not Config.CALL_STATUS \
-            and len(Config.playlist) >= 1:
+        if not Config.CALL_STATUS and len(Config.playlist) >= 1:
             await msg.edit("<b>⚡️Downloading and Processing...</b>")
             await download(Config.playlist[0], msg)
             await play()
-        elif (len(Config.playlist) == 1 and Config.CALL_STATUS):
+        elif len(Config.playlist) == 1 and Config.CALL_STATUS:
             await msg.edit("<b>⚡️Downloading and Processing...</b>")
             await download(Config.playlist[0], msg)  
             await play()
@@ -283,17 +263,16 @@ async def add_to_playlist(client, message):
             await msg.edit("<b>⚡️Downloading and Processing...</b>")
             await download(Config.playlist[0], msg)  
             await play()
-
         else:
             await send_playlist()  
         await msg.delete()
-        pl=await get_playlist_str()
+        pl = await get_playlist_str()
         if message.chat.type == enums.ChatType.PRIVATE:
-            await message.reply(pl, reply_markup=await get_buttons() ,disable_web_page_preview=True)       
+            await message.reply(pl, reply_markup=await get_buttons(), disable_web_page_preview=True)       
         elif message.chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
             if Config.msg.get('playlist') is not None:
                 await Config.msg['playlist'].delete()
-                Config.msg['playlist']=await message.reply(pl, disable_web_page_preview=True, reply_markup=await get_buttons())    
+                Config.msg['playlist'] = await message.reply(pl, disable_web_page_preview=True, reply_markup=await get_buttons())    
             await delete_messages([message])  
         for track in Config.playlist[:2]:
             await download(track)
@@ -431,90 +410,126 @@ async def yt_play_list(client, m: Message):
 
 @Client.on_message(filters.command(["stream", f"stream@{Config.BOT_USERNAME}"]) & admin_filter & chat_filter)
 async def stream(client, m: Message):
-    with suppress(MessageIdInvalid, MessageNotModified):
-        msg = await m.reply("<b>Checking the received input.</b>", quote=False)
-        if m.reply_to_message and m.reply_to_message.text:
-            link = m.reply_to_message.text
-        elif " " in m.text:
-            text = m.text.split(" ", 1)
-            link = text[1]
-        else:
-            k = await msg.edit("<b>❌Provide a link to stream!</b>")
-            await delete_messages([m, k])
-            return
-        regex = r"^(?:https?:\/\/)?(?:www\.)?youtu\.?be(?:\.com)?\/?.*(?:watch|embed)?(?:.*v=|v\/|\/)([\w\-_]+)\&?"
-        match = re.match(regex, link)
-        if match:
-            stream_link = await get_link(link)
-            if not stream_link:
-                k = await msg.edit("<b>❌This is an invalid link.</b>")
+    try:
+        with suppress(MessageIdInvalid, MessageNotModified):
+            msg = await m.reply("<b>Checking the received input...</b>", quote=False)
+            if m.reply_to_message and m.reply_to_message.text:
+                link = m.reply_to_message.text
+            elif " " in m.text:
+                text = m.text.split(" ", 1)
+                link = text[1]
+            else:
+                k = await msg.edit("<b>❌ Provide a link to stream!</b>")
                 await delete_messages([m, k])
                 return
-        else:
-            stream_link = link
-        try:
-            is_audio_ = await is_audio(stream_link)
-        except:
-            is_audio_ = False
-            LOGGER.error("Unable to get Audio properties within time.")
-        if not is_audio_:
-            k = await msg.edit("<b>❌This is an invalid link, provide me a direct link or a YouTube link.</b>")
-            await delete_messages([m, k])
-            return
-        try:
-            dur = await get_duration(stream_link)
-        except:
-            dur = 0
-        if dur != 0:
-            k = await msg.edit("<b>❌This is not a live stream, use /play command.</b>")
-            await delete_messages([m, k])
-            return
-        k, msg_ = await stream_from_link(stream_link)
-        if k == False:
-            k = await msg.edit(msg_)
-            await delete_messages([m, k])
-            return
-        if Config.msg.get('player'):
-            await Config.msg['player'].delete()
-        Config.msg['player'] = await msg.edit(f"<b>🎸 [Streaming]({stream_link}) started.</b>", disable_web_page_preview=True, reply_markup=await get_buttons())
-        await delete_messages([m])
+            regex = r"^(?:https?:\/\/)?(?:www\.)?youtu\.?be(?:\.com)?\/?.*(?:watch|embed)?(?:.*v=|v\/|\/)([\w\-_]+)\&?"
+            match = re.match(regex, link)
+            if match:
+                stream_link = await get_link(link)
+                if not stream_link:
+                    k = await msg.edit("<b>❌ This is an invalid link.</b>")
+                    await delete_messages([m, k])
+                    return
+            else:
+                stream_link = link
+            try:
+                is_audio_ = await is_audio(stream_link)
+            except:
+                is_audio_ = False
+                LOGGER.error("Unable to get Audio properties within time.")
+            if not is_audio_:
+                k = await msg.edit("<b>❌ This is an invalid link, provide me a direct link or a YouTube link.</b>")
+                await delete_messages([m, k])
+                return
+            try:
+                dur = await get_duration(stream_link)
+            except:
+                dur = 0
+            if dur != 0:
+                k = await msg.edit("<b>❌ This is not a live stream, use /play command.</b>")
+                await delete_messages([m, k])
+                return
+            k, msg_ = await stream_from_link(stream_link)
+            if k == False:
+                k = await msg.edit(msg_)
+                await delete_messages([m, k])
+                return
+            if Config.msg.get('player'):
+                await Config.msg['player'].delete()
+            Config.msg['player'] = await msg.edit(f"<b>🎸 [Streaming]({stream_link}) started.</b>", disable_web_page_preview=True, reply_markup=await get_buttons())
+            await delete_messages([m])
+    except Exception as e:
+        LOGGER.error(f"Error in stream command: {e}", exc_info=True)
+        k = await m.reply("<b>❌ An error occurred while processing the stream.</b>", quote=False)
+        await delete_messages([m, k])
 
-admincmds = ["yplay", "leave", "pause", "resume", "skip", "restart", "volume", "shuffle", "clearplaylist", "export", "import", "update", 'replay', 'logs', 'stream', 'fplay', 'schedule', 'record', 'slist', 'cancel', 'cancelall', 'vcpromote', 'vcdemote', 'refresh', 'rtitle', 'seek', 'vcmute', 'unmute',
-            f'stream@{Config.BOT_USERNAME}', f'logs@{Config.BOT_USERNAME}', f"replay@{Config.BOT_USERNAME}", f"yplay@{Config.BOT_USERNAME}", f"leave@{Config.BOT_USERNAME}", f"pause@{Config.BOT_USERNAME}", f"resume@{Config.BOT_USERNAME}", f"skip@{Config.BOT_USERNAME}", 
-            f"restart@{Config.BOT_USERNAME}", f"volume@{Config.BOT_USERNAME}", f"shuffle@{Config.BOT_USERNAME}", f"clearplaylist@{Config.BOT_USERNAME}", f"export@{Config.BOT_USERNAME}", f"import@{Config.BOT_USERNAME}", f"update@{Config.BOT_USERNAME}",
-            f'play@{Config.BOT_USERNAME}', f'schedule@{Config.BOT_USERNAME}', f'record@{Config.BOT_USERNAME}', f'slist@{Config.BOT_USERNAME}', f'cancel@{Config.BOT_USERNAME}', f'cancelall@{Config.BOT_USERNAME}', f'vcpromote@{Config.BOT_USERNAME}', 
-            f'vcdemote@{Config.BOT_USERNAME}', f'refresh@{Config.BOT_USERNAME}', f'rtitle@{Config.BOT_USERNAME}', f'seek@{Config.BOT_USERNAME}', f'mute@{Config.BOT_USERNAME}', f'vcunmute@{Config.BOT_USERNAME}'
+admincmds = [
+    "yplay", "leave", "pause", "resume", "skip", "restart", "volume", "shuffle", 
+    "clearplaylist", "export", "import", "update", "replay", "logs", "stream", 
+    "fplay", "schedule", "record", "slist", "cancel", "cancelall", "vcpromote", 
+    "vcdemote", "refresh", "rtitle", "seek", "vcmute", "unmute",
+    f"yplay@{Config.BOT_USERNAME}", f"leave@{Config.BOT_USERNAME}", 
+    f"pause@{Config.BOT_USERNAME}", f"resume@{Config.BOT_USERNAME}", 
+    f"skip@{Config.BOT_USERNAME}", f"restart@{Config.BOT_USERNAME}", 
+    f"volume@{Config.BOT_USERNAME}", f"shuffle@{Config.BOT_USERNAME}", 
+    f"clearplaylist@{Config.BOT_USERNAME}", f"export@{Config.BOT_USERNAME}", 
+    f"import@{Config.BOT_USERNAME}", f"update@{Config.BOT_USERNAME}", 
+    f"replay@{Config.BOT_USERNAME}", f"logs@{Config.BOT_USERNAME}", 
+    f"stream@{Config.BOT_USERNAME}", f"fplay@{Config.BOT_USERNAME}", 
+    f"schedule@{Config.BOT_USERNAME}", f"record@{Config.BOT_USERNAME}", 
+    f"slist@{Config.BOT_USERNAME}", f"cancel@{Config.BOT_USERNAME}", 
+    f"cancelall@{Config.BOT_USERNAME}", f"vcpromote@{Config.BOT_USERNAME}", 
+    f"vcdemote@{Config.BOT_USERNAME}", f"refresh@{Config.BOT_USERNAME}", 
+    f"rtitle@{Config.BOT_USERNAME}", f"seek@{Config.BOT_USERNAME}", 
+    f"mute@{Config.BOT_USERNAME}", f"vcunmute@{Config.BOT_USERNAME}"
 ]
 
 allcmd = ["play", "player", f"play@{Config.BOT_USERNAME}", f"player@{Config.BOT_USERNAME}"] + admincmds
 
 @Client.on_message(filters.command(admincmds) & ~admin_filter & chat_filter)
-async def notforu(_, m: Message):
-    k = await _.send_message(
-        chat_id = m.chat.id,
-        text = "<b>Sorry! You are not authorized ❌</b>",
-        reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton('Join Now ✅', url='https://t.me/Modvip_rm')]])
-    )
-    await delete_messages([m, k])
+async def notforu(client, m: Message):
+    try:
+        k = await client.send_message(
+            chat_id=m.chat.id,
+            text="<b>Sorry! You are not authorized ❌</b>",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton('Join Now ✅', url='https://t.me/ModVip_rm')]
+            ])
+        )
+        await delete_messages([m, k])
+    except Exception as e:
+        LOGGER.error(f"Error in notforu handler: {e}", exc_info=True)
 
-@Client.on_message(filters.command(allcmd) & ~chat_filter & filters.group)
-async def not_chat(_, m: Message):
-    if m.from_user is not None and m.from_user.id in Config.SUDO:
-        buttons = [
-            [
-                InlineKeyboardButton('⚡️Change CHAT', callback_data='set_new_chat'),
-            ],
-            [
-                InlineKeyboardButton('❌No', callback_data='closesudo'),
+@Client.on_message(filters.command(allcmd) & filters.group)
+async def group_command_handler(client, m: Message):
+    try:
+        if m.from_user and m.from_user.id in Config.SUDO:
+            buttons = [
+                [
+                    InlineKeyboardButton('⚡️ Change Bot Settings', url='https://github.com/abirxdhack/TelecastBot'),
+                ],
+                [
+                    InlineKeyboardButton('❌ Cancel', callback_data='closesudo'),
+                ]
             ]
-        ]
-        await m.reply("❌This is not the group which I have been configured to play, do you want to set this group as default CHAT?", quote=False, reply_markup = InlineKeyboardMarkup(buttons))
+            await m.reply(
+                "⚙️ You are a SUDO user. You can configure bot settings. Would you want to access the source code to make changes?",
+                quote=True,
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
+        else:
+            buttons = [
+                [
+                    InlineKeyboardButton('⚡️ Make Own Bot', url='https://github.com/abirxdhack/TelecastBot'),
+                    InlineKeyboardButton('✅ Join Here', url='https://t.me/ModVip_rm'),
+                ]
+            ]
+            await m.reply(
+                "<b>🎶 You can use this bot in this group! To create your own bot, check out the [SOURCE CODE](https://github.com/abirxdhack/TelecastBot) to make your own.</b>",
+                quote=True,
+                disable_web_page_preview=False,
+                reply_markup=InlineKeyboardMarkup(buttons)
+            )
         await delete_messages([m])
-    else:
-        buttons = [
-            [
-                InlineKeyboardButton('⚡️Make Own Bot', url='https://github.com/abirxdhack/TelecastBot'),
-                InlineKeyboardButton('✅ Join Here', url='https://t.me/Modvip_rm'),
-            ]
-        ]
-        await m.reply("<b>❌You can't use this bot in this group, for that you have to make your own bot from the [SOURCE CODE](https://github.com/abirxdhack/TelecastBot) below.</b>", quote=False, disable_web_page_preview = True, reply_markup = InlineKeyboardMarkup(buttons))
+    except Exception as e:
+        LOGGER.error(f"Error in group_command_handler: {e}", exc_info=True)
